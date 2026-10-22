@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,11 +10,17 @@ import { Button, Check, ErrorBox, Field, link } from '../src/components/Form';
 import { useAuth } from '../src/store/auth';
 import { tl } from '../src/data';
 import { useProducts } from '../src/useProducts';
+import { useServices } from '../src/services';
 
 // Bilgi / teklif al: sitedeki "Bilgi Al" formuyla aynı yere düşer (admin → Bilgi Talepleri, e-posta ve WhatsApp bildirimi).
 // ?urun=<slug>&ad=<ürün adı>&gorsel=<adres> ile belirli bir ürün için açılabilir; ürün görseli, markası ve fiyatı üstte gösterilir.
+// ?teklif=1 hizmet teklifi modudur (Hizmetlerimiz): hizmet seçimi gösterilir, &hizmet=<slug> ile seçili gelir.
 export default function Lead() {
-  const { urun, ad, gorsel } = useLocalSearchParams<{ urun?: string; ad?: string; gorsel?: string }>();
+  const { urun, ad, gorsel, teklif, hizmet } = useLocalSearchParams<{ urun?: string; ad?: string; gorsel?: string; teklif?: string; hizmet?: string }>();
+  const quote = teklif === '1';
+  const { data: services } = useServices();
+  const [service, setService] = useState(hizmet ?? '');
+  const heading = quote ? 'Teklif Al' : 'Bilgi / Teklif Al';
   const { products } = useProducts();
   const product = useMemo(() => (urun ? products.find((x) => x.slug === urun) : undefined), [products, urun]);
   const image = gorsel || product?.imageUrl;
@@ -34,10 +40,11 @@ export default function Lead() {
 
   const submit = async () => {
     setError(null);
+    if (quote && !service) return setError('Teklif almak istediğiniz hizmeti seçin.');
     if (!kvkk) return setError('Devam etmek için KVKK Aydınlatma Metni’ni onaylayın.');
     setBusy(true);
     try {
-      await api('/api/app/lead', { body: { ...f, kvkk, product: urun ?? '' } });
+      await api('/api/app/lead', { body: { ...f, kvkk, product: urun ?? '', service: quote ? service : '' } });
       setDone(true);
     } catch (e) {
       setError((e as Error).message);
@@ -49,7 +56,7 @@ export default function Lead() {
   if (done) {
     return (
       <View style={s.screen}>
-        <ScreenHeader title="Bilgi / Teklif Al" />
+        <ScreenHeader title={heading} />
         <View style={s.done}>
           <View style={s.doneIcon}><Ionicons name="checkmark" size={40} color="#FFFFFF" /></View>
           <Text style={s.doneTitle}>Talebiniz alındı</Text>
@@ -62,7 +69,7 @@ export default function Lead() {
 
   return (
     <View style={s.screen}>
-      <ScreenHeader title="Bilgi / Teklif Al" />
+      <ScreenHeader title={heading} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
           {ad ? (
@@ -77,6 +84,20 @@ export default function Lead() {
                 {product && product.price > 0 ? <Text style={s.productPrice}>{tl(product.price)}</Text> : null}
               </View>
             </View>
+          ) : quote ? (
+            <>
+              <Text style={s.sub}>Projenizin bulunduğu ilçeyi, yapı türünü ve ihtiyaç duyduğunuz hizmeti paylaşın; keşif ve teklif sürecini birlikte planlayalım.</Text>
+              <Text style={s.label}>Hizmet</Text>
+              <View style={s.chips}>
+                {services?.services.map((x) => (
+                  <Pressable key={x.slug} onPress={() => setService(x.slug)} accessibilityRole="radio" accessibilityState={{ selected: service === x.slug }}
+                    style={[s.chip, service === x.slug && s.chipOn]}>
+                    <Ionicons name={service === x.slug ? 'radio-button-on' : 'radio-button-off'} size={18} color={service === x.slug ? colors.primary : colors.muted} />
+                    <Text style={[s.chipText, service === x.slug && { color: colors.primary }]}>{x.short}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
           ) : (
             <Text style={s.sub}>Ürün, proje ya da montaj için bilgi ve teklif isteyin; uzman ekibimiz sizi arasın.</Text>
           )}
@@ -85,8 +106,8 @@ export default function Lead() {
           <Field label="Telefon" value={f.phone} onChangeText={set('phone')} placeholder="05xx xxx xx xx" keyboardType="phone-pad" autoComplete="tel" />
           <Field label="E-posta (isteğe bağlı)" value={f.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
           <Field label="Şehir / ilçe (isteğe bağlı)" value={f.city} onChangeText={set('city')} placeholder="Örn. Sancaktepe" />
-          <Field label="Mesajınız (isteğe bağlı)" value={f.message} onChangeText={set('message')} multiline numberOfLines={4}
-            placeholder="Örn. 3+1 daire için kombi ve radyatör teklifi" />
+          <Field label={quote ? 'Projeniz hakkında (isteğe bağlı)' : 'Mesajınız (isteğe bağlı)'} value={f.message} onChangeText={set('message')} multiline numberOfLines={4}
+            placeholder={quote ? 'Örn. Sancaktepe’de fabrika, kapalı alan 2.000 m²' : 'Örn. 3+1 daire için kombi ve radyatör teklifi'} />
           <Check checked={kvkk} onChange={setKvkk}>
             <Text style={link} onPress={() => router.push({ pathname: '/page/[slug]', params: { slug: 'kvkk-aydinlatma-metni' } })}>KVKK Aydınlatma Metni</Text>’ni okudum; talebim için benimle iletişime geçilmesini kabul ediyorum.
           </Check>
@@ -101,6 +122,11 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   body: { padding: 20, paddingBottom: 40 },
   sub: { color: colors.muted, fontSize: 14.5, lineHeight: 21, marginBottom: 20 },
+  label: { color: colors.text, fontSize: 13.5, fontWeight: '700', marginBottom: 8 },
+  chips: { gap: 8, marginBottom: 18 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radius, borderWidth: 1, borderColor: colors.border },
+  chipOn: { borderColor: colors.primary, backgroundColor: colors.surface },
+  chipText: { flex: 1, color: colors.text, fontSize: 14.5, fontWeight: '600' },
   product: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 10, borderRadius: radius, backgroundColor: colors.surface, marginBottom: 18 },
   thumb: { width: 76, height: 76, borderRadius: radius, overflow: 'hidden', backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   productBrand: { color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },

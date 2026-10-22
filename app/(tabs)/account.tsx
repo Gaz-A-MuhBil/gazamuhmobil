@@ -42,6 +42,7 @@ export default function Account() {
       items: [
         { icon: 'call-outline', label: 'Bizi arayın', sub: PHONE, onPress: call },
         { icon: 'logo-whatsapp', label: 'WhatsApp destek', onPress: () => whatsapp() },
+        { icon: 'construct-outline', label: 'Hizmetlerimiz', sub: 'Doğalgaz, yangın tesisatı, iklimlendirme', onPress: () => go('/services') },
         { icon: 'document-text-outline', label: 'Bilgi / teklif al', onPress: () => go('/lead') },
         { icon: 'location-outline', label: 'İletişim ve adres', onPress: () => go('/contact') },
       ],

@@ -8,12 +8,14 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { colors, radius } from '../../src/theme';
 import { AppBar } from '../../src/components/AppBar';
 import { ProductTile } from '../../src/components/ProductTile';
+import { ServiceCard } from '../../src/components/ServiceCard';
 import { SectionHead } from '../../src/components/Section';
 import { iconFor, orderCategories } from '../../src/categories';
 import { loadSeason, plural, useSeason } from '../../src/useSeason';
 import { call, openSite, whatsapp } from '../../src/links';
 import { discount, onSale, useProducts } from '../../src/useProducts';
 import { useSlides, type Banner } from '../../src/useSlides';
+import { useServices } from '../../src/services';
 import type { Product } from '../../src/store/cart';
 
 const PAD = 16;
@@ -21,6 +23,7 @@ const PAD = 16;
 export default function Home() {
   const { products } = useProducts();
   const slides = useSlides();
+  const { data: services } = useServices();
   const order = useSeason((st) => st.order);
   useEffect(loadSeason, []);
   // kategoriler mevsime göre: kışın Kombi, yazın Klima önde (admin → Mevsim Sıralaması)
@@ -60,6 +63,17 @@ export default function Home() {
         </View>
 
         {deals.length > 0 && <Row title="Kampanyalı Ürünler" data={deals} onMore={() => router.navigate('/campaigns')} />}
+
+        {/* ticari ve endüstriyel hizmetler (Hizmetlerimiz) */}
+        {services && services.services.length > 0 && (
+          <View style={{ marginBottom: 28 }}>
+            <SectionHead title="Hizmetlerimiz" onMore={() => router.push('/services')} />
+            <Text style={s.servicesSub}>Ticari yapılar ve sanayi tesisleri için mühendislik hizmetleri</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: PAD, gap: 12 }}>
+              {services.services.map((x, n) => <ServiceCard key={x.slug} service={x} n={n} width={264} />)}
+            </ScrollView>
+          </View>
+        )}
         {lead && <Row title={`Çok Satan ${plural(lead)}`} data={byCat(lead, 12)} onMore={() => openCat(lead)} />}
         {others.slice(0, 2).map((c) => <Row key={c} title={`Öne Çıkan ${plural(c)}`} data={byCat(c, 4)} onMore={() => openCat(c)} />)}
 
@@ -240,6 +254,7 @@ const s = StyleSheet.create({
   trustItem: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
   trustTitle: { color: colors.text, fontSize: 12.5, fontWeight: '800', marginTop: 6 },
   trustSub: { color: colors.muted, fontSize: 11, marginTop: 1 },
+  servicesSub: { color: colors.muted, fontSize: 13.5, paddingHorizontal: PAD, marginTop: -6, marginBottom: 12 },
   cta: { marginHorizontal: PAD, marginBottom: 28, borderRadius: radius, padding: 20 },
   ctaTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', lineHeight: 24, marginTop: 10 },
   ctaText: { color: 'rgba(255,255,255,0.78)', fontSize: 13.5, lineHeight: 20, marginTop: 6 },
